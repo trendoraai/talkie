@@ -1,0 +1,9 @@
+.env
+__pycache__
+.vscode/
+**/__pycache__
+**/file_hashes.json
+programming/
+dist/
+**/**.log
+
