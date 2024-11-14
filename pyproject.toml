@@ -1,16 +1,20 @@
 [tool.poetry]
 name = "talkie"
 version = "0.1.0"
-description = ""
+description = "A Python package for conversational AI interactions"
 authors = ["Your Name <you@example.com>"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "talkie", from = "src" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
 python-dotenv = "^1.0.1"
 pinecone = "^5.3.1"
 openai = "^1.54.3"
+chromadb = "^0.5.18"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
@@ -25,4 +29,5 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-talkie = "talkie.cli:main"
+talkie = "talkie.cli.main:main"
+quick = "talkie.main:main"

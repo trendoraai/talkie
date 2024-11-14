@@ -1,6 +1,6 @@
 import argparse
 import sys
-
+from talkie.logger_setup import talkie_logger
 
 def main(*args):
     parser = argparse.ArgumentParser(description="Hey command")
@@ -9,7 +9,9 @@ def main(*args):
     # If args provided, use those. Otherwise use sys.argv[1:]
     args = parser.parse_args(args)
 
-    print("hey" + ("!" if args.caps else ""))
+    message = "hey" + ("!" if args.caps else "")
+    talkie_logger.info(f"Executing hey command with message: {message}")
+    print(message)
     return 0
 
 

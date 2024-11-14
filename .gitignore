@@ -6,4 +6,5 @@ __pycache__
 programming/
 dist/
 **/**.log
+**/**.ipynb_checkpoints/
 
