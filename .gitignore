@@ -7,4 +7,5 @@ programming/
 dist/
 **/**.log
 **/**.ipynb_checkpoints/
+chroma_db/
 

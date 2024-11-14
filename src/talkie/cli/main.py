@@ -1,9 +1,11 @@
 """Command-line interface for the talkie package."""
+
 import sys
 import argparse
 import importlib
 import os
 from typing import List, Tuple, Optional
+
 
 def load_command_module(command_path: str) -> object:
     """Dynamically load a command module based on the given path."""
@@ -11,9 +13,11 @@ def load_command_module(command_path: str) -> object:
     return importlib.import_module(module_name)
 
 
-def get_available_commands(base_path: str = "talkie.cli.commands", filter_prefix: str = "") -> List[Tuple[str, str]]:
+def get_available_commands(
+    base_path: str = "talkie.cli.commands", filter_prefix: str = ""
+) -> List[Tuple[str, str]]:
     """Retrieve a sorted list of available command modules that contain a main function.
-    
+
     Only searches within the talkie.cli.commands package for command modules.
     Each command module should have a main() function that implements the command.
     """
@@ -39,10 +43,10 @@ def get_available_commands(base_path: str = "talkie.cli.commands", filter_prefix
                     module_name = file[:-3]  # Remove .py
                 else:
                     module_name = f"{rel_path.replace(os.path.sep, '.')}.{file[:-3]}"
-                
+
                 # Construct full module path
                 module_path = f"talkie.cli.commands.{module_name}"
-                
+
                 try:
                     module = importlib.import_module(module_path)
                     if hasattr(module, "main"):
@@ -66,7 +70,9 @@ def get_available_commands(base_path: str = "talkie.cli.commands", filter_prefix
     return sorted(commands, key=sort_key)
 
 
-def display_available_commands(commands: List[Tuple[str, str]], prefix: str = "") -> None:
+def display_available_commands(
+    commands: List[Tuple[str, str]], prefix: str = ""
+) -> None:
     """Print the list of available commands to the console."""
     if prefix:
         print(f"Available commands in 'talkie {prefix}':")
@@ -113,7 +119,9 @@ def parse_arguments() -> Tuple[argparse.Namespace, List[str]]:
     return parser.parse_known_args()
 
 
-def execute_command(command_parts: List[str], remaining_args: List[str]) -> Optional[int]:
+def execute_command(
+    command_parts: List[str], remaining_args: List[str]
+) -> Optional[int]:
     """Load and execute the specified command module's main function."""
     # Join command parts with dots to form module path
     module_name = ".".join(command_parts)
@@ -135,13 +143,15 @@ def execute_command(command_parts: List[str], remaining_args: List[str]) -> Opti
         return None
 
 
-def handle_command_execution(command_parts: List[str], remaining_args: List[str]) -> int:
+def handle_command_execution(
+    command_parts: List[str], remaining_args: List[str]
+) -> int:
     """Handle the execution of a specified command."""
     result = execute_command(command_parts, remaining_args)
-    
+
     if result is not None:
         return result or 0
-        
+
     # Command not found, show available commands
     filter_prefix = " ".join(command_parts)
     available_commands = get_available_commands(filter_prefix=filter_prefix)

@@ -2,6 +2,7 @@ import argparse
 import sys
 from talkie.logger_setup import talkie_logger
 
+
 def main(*args):
     parser = argparse.ArgumentParser(description="Hey command")
     parser.add_argument("--caps", action="store_true", help="Add exclamation mark")
