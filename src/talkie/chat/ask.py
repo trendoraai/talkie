@@ -13,24 +13,26 @@ from ..logger_setup import talkie_logger as logging
 from .utils import parse_file_content
 from pprint import pprint
 
+from ..logger_setup import talkie_logger as logging
+
 
 async def process_file_and_query_openai(
     file_path: str, api_key: str, include_rag_context_in_chat_history: bool = False
 ) -> Tuple[str, Dict[str, Any]]:
     """Process the chat file and query OpenAI with the extracted information."""
+    logging.debug(f"Starting to process file: {file_path}")
     with open(file_path, "r") as f:
         content = f.read()
+    logging.debug(f"Successfully read file content, length: {len(content)} characters")
 
     # Extract system prompt, model, and messages from file content
     system_prompt, model, api_endpoint, messages, rag_directory = parse_file_content(
         content, file_path
     )
-
-    print("===================")
-    print(system_prompt)
-    print(model)
-    print(messages)
-    print("===================")
+    logging.debug(f"Parsed file content - Model: {model}, API Endpoint: {api_endpoint}")
+    logging.debug(
+        f"System prompt length: {len(system_prompt)}, Number of messages: {len(messages)}"
+    )
 
     # If RAG directory is provided, augment the last user message with relevant context
     if rag_directory and messages:
@@ -38,32 +40,51 @@ async def process_file_and_query_openai(
         if last_message["role"] == "user":
             try:
                 rag_path = discover_rag_path(rag_directory, file_path)
-                logging.info(f"Discovered RAG directory: {rag_path}")
+                logging.info(f"Using RAG directory: {rag_path}")
+                logging.debug("Initializing DirectoryRAG instance")
                 rag = DirectoryRAG(rag_path, openai_api_key=api_key)
+
+                logging.debug("Processing RAG directory")
+                rag.process_directory()
+
                 question = "\n".join(last_message["content"])
+                logging.debug(f"Extracted question for RAG: {question[:100]}...")
+
                 rag_context = []
+                logging.debug("Querying RAG for relevant context")
                 for filename, content in rag.query(question):
+                    logging.debug(f"Found relevant content in file: {filename}")
                     context = f"File Path: {filename}\nFile Content:\n{content}\n"
                     rag_context.append(context)
 
                 if rag_context:
                     text_rag_context = "\n".join(rag_context)
+                    logging.debug(
+                        f"Added {len(rag_context)} context items to the message"
+                    )
                     last_message["content"] = [
                         f"Context from codebase:\n{text_rag_context}\n\n"
                         f"Question: {question}"
                     ]
-            except FileNotFoundError as e:
-                logging.error(f"RAG directory not found: {e}")
+                else:
+                    logging.debug("No relevant RAG context found for the question")
+            except Exception as e:
+                logging.error(f"Error processing RAG context: {str(e)}", exc_info=True)
                 raise
 
+    # Prepare messages for API call
+    logging.debug("Preparing messages for OpenAI API call")
     api_messages = prepare_api_messages(system_prompt, messages)
 
-    logging.debug(f"Prepared API messages:\n{json.dumps(api_messages, indent=2)}")
-
+    # Query OpenAI API
+    logging.info(f"Querying OpenAI API with model: {model}")
     answer, response_body = await query_openai(
         api_key, model, api_endpoint, api_messages
     )
-    question = messages[-1]["content"] if include_rag_context_in_chat_history else ""
+    logging.debug(
+        f"Received response from OpenAI API, status: {response_body.get('status', 'unknown')}"
+    )
+
     return question, answer, response_body
 
 
@@ -150,23 +171,28 @@ async def ask(file_path: str, api_key: Optional[str] = None) -> None:
     try:
         # Setup logging
         file_path = str(Path(file_path).resolve())
-        logging.info(f"Starting processing for file: {file_path}")
+        logging.info(f"Processing chat file: {file_path}")
+        logging.debug("Starting chat processing workflow")
 
         # Get API key
+        logging.debug("Retrieving OpenAI API key")
         api_key = get_openai_api_key(api_key)
+        logging.debug("Successfully retrieved API key")
 
         # Process file and query OpenAI
+        logging.debug("Initiating file processing and OpenAI query")
         question, answer, response_body = await process_file_and_query_openai(
             file_path, api_key
         )
 
+        logging.debug(f"Generated answer length: {len(answer)} characters")
         print(f"Answer: {answer}")
-        logging.info("Successfully processed file and received answer")
 
         # Append answer to file
+        logging.debug("Handling OpenAI response and updating file")
         handle_openai_response(file_path, question, answer, response_body)
-        logging.info("Successfully appended answer to file")
+        logging.info("Successfully processed chat and updated file")
 
     except Exception as e:
-        logging.error(f"Error processing file and querying OpenAI: {str(e)}")
+        logging.error(f"Error in chat processing: {str(e)}", exc_info=True)
         raise
