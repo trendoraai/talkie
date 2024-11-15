@@ -15,30 +15,6 @@ def calculate_file_hash(file_path: Path) -> str:
     return hash_md5.hexdigest()
 
 
-def read_file_content(file_path: Path) -> str:
-    """Read the content of a file."""
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
-
-
-def get_file_metadata(file_path: Path, base_dir: Path) -> Dict[str, Any]:
-    """Get metadata for a file."""
-    rel_path = str(file_path.relative_to(base_dir))
-    return {
-        "path": rel_path,
-        "size": file_path.stat().st_size,
-        "last_modified": file_path.stat().st_mtime,
-    }
-
-
-def load_hashes(file_path) -> Dict[str, Any]:
-    """Load file hashes from the hash file."""
-    if file_path.exists():
-        with open(file_path, "r") as f:
-            return json.load(f)
-    return {"files": {}}
-
-
 def save_hashes(file_path, file_hashes) -> None:
     """Save file hashes to the hash file."""
     with open(file_path, "w") as f:

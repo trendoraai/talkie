@@ -1,8 +1,13 @@
 import logging
+import os
 
 
-def setup_global_logger(name="talkie", log_file="talkie.log", level=logging.INFO):
-    """Function to set up a global logger with the given name and log file."""
+def setup_global_logger(name="talkie", log_file="talkie.log"):
+    """Configure global logger with environment-based log level control."""
+    # Get log level from environment, default to INFO
+    log_level = os.environ.get("LOG", "INFO").upper()
+    level = getattr(logging, log_level, logging.INFO)
+
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
