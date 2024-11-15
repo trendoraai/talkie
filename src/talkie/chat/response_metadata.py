@@ -38,7 +38,8 @@ def handle_openai_response(
     """Handle OpenAI response and write to file."""
     with open(file_path, "a") as file:
         if question:
-            file.write(f"\nPrompt with context -- \n{"\n".join(question).strip()}\n")
+            text_question = "\n".join(question).strip()
+            file.write(f"\nPrompt with context -- " f"\n{text_question}\n")
 
         file.write(f"\nassistant:\n{answer.strip()}\n")
 

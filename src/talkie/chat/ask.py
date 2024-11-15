@@ -10,6 +10,7 @@ from .response_metadata import handle_openai_response
 from .constants import ADD_OPENAI_KEY_MESSAGE
 from ..rag.directory_rag import DirectoryRAG
 from ..logger_setup import talkie_logger as logging
+from .utils import parse_file_content
 from pprint import pprint
 
 
@@ -46,8 +47,10 @@ async def process_file_and_query_openai(
                     rag_context.append(context)
 
                 if rag_context:
+                    text_rag_context = "\n".join(rag_context)
                     last_message["content"] = [
-                        f"Context from codebase:\n{"\n".join(rag_context)}\n\nQuestion: {question}"
+                        f"Context from codebase:\n{text_rag_context}\n\n"
+                        f"Question: {question}"
                     ]
             except FileNotFoundError as e:
                 logging.error(f"RAG directory not found: {e}")
@@ -62,141 +65,6 @@ async def process_file_and_query_openai(
     )
     question = messages[-1]["content"] if include_rag_context_in_chat_history else ""
     return question, answer, response_body
-
-
-def is_comment(line: str) -> bool:
-    """Check if a line is an HTML comment."""
-    line = line.strip()
-    return line.startswith("<!--") and line.endswith("-->")
-
-
-def parse_frontmatter_line(
-    line: str, current_key: str, current_value: List[str], i: int
-) -> Tuple[str, List[str]]:
-    """Parse a single line of frontmatter."""
-    if ":" in line and not line.strip().startswith(" "):
-        parts = line.split(":", 1)
-        key = parts[0].strip()
-
-        if " " in key:
-            logging.warning(f"Invalid frontmatter key format at line {i+1}: {line}")
-            return current_key, current_value
-
-        new_value = [parts[1].strip()] if len(parts) > 1 else []
-        return key, new_value
-
-    if current_key:
-        current_value.append(line.strip())
-    return current_key, current_value
-
-
-def process_message_line(
-    line: str, current_message: Dict[str, Any], chat_file_path: str
-) -> Dict[str, Any]:
-    """Process a single line in the message section."""
-    if line.startswith("user:") or line.startswith("assistant:"):
-        role = "user" if line.startswith("user:") else "assistant"
-        content_start = line.find(":") + 1
-        return {"role": role, "content": [line[content_start:].strip()]}
-
-    if current_message["role"] and not is_comment(line):
-        if is_file_reference(line):
-            current_message["content"].append(
-                expand_file_reference(line, chat_file_path)
-            )
-        else:
-            current_message["content"].append(line.strip())
-
-    return current_message
-
-
-def get_frontmatter_defaults(
-    frontmatter: Dict[str, str]
-) -> Tuple[str, str, str, Optional[str]]:
-    """Get frontmatter values with defaults."""
-    return (
-        frontmatter.get("system", "You are a helpful assistant."),
-        frontmatter.get("model", "gpt-4"),
-        frontmatter.get("api_endpoint", "https://api.openai.com/v1/chat/completions"),
-        frontmatter.get("rag_directory"),
-    )
-
-
-def parse_file_content(
-    content: str,
-    chat_file_path: str,
-) -> Tuple[str, str, str, List[Dict[str, str]], Optional[str]]:
-    """Parse the chat file content to extract necessary information."""
-    lines = content.split("\n")
-    frontmatter = {}
-    messages = []
-
-    # Parse frontmatter
-    in_frontmatter = False
-    current_key = None
-    current_value = []
-    current_message = {"role": None, "content": []}
-
-    for i, line in enumerate(lines):
-        line = line.strip()
-
-        # Handle frontmatter delimiters
-        if line == "---":
-            if in_frontmatter and current_key:
-                frontmatter[current_key] = "\n".join(current_value).strip()
-            in_frontmatter = not in_frontmatter
-            continue
-
-        if in_frontmatter:
-            # Process frontmatter
-            current_key, current_value = parse_frontmatter_line(
-                line, current_key, current_value, i
-            )
-            if current_key and current_key != current_value[0]:  # New key found
-                frontmatter[current_key] = "\n".join(current_value).strip()
-        else:
-            # Process messages
-            new_message = process_message_line(line, current_message, chat_file_path)
-            if new_message != current_message:
-                if current_message["role"]:
-                    messages.append(current_message)
-                current_message = new_message
-
-    # Add the last message if it exists
-    if current_message["role"]:
-        messages.append(current_message)
-
-    # Get values from frontmatter with defaults
-    system_prompt, model, api_endpoint, rag_directory = get_frontmatter_defaults(
-        frontmatter
-    )
-
-    pprint(messages)
-
-    return system_prompt, model, api_endpoint, messages, rag_directory
-
-
-def is_file_reference(line: str) -> bool:
-    """Check if a line contains a file reference in the format [[filename]]."""
-    line = line.strip()
-    return line.startswith("[[") and line.endswith("]]") and not "\n" in line
-
-
-def expand_file_reference(line: str, chat_file_path: str) -> str:
-    """Expand a file reference by reading the referenced file's content."""
-    file_path = line.strip()[2:-2]  # Remove [[ and ]]
-
-    # Make the path relative to the chat file's directory
-    chat_dir = os.path.dirname(chat_file_path)
-    absolute_path = os.path.join(chat_dir, file_path)
-
-    try:
-        with open(absolute_path, "r") as f:
-            file_content = f.read()
-        return f"\n\nFile Path:\n[[{file_path}]]\nFile Content:\n{file_content}\n\n"
-    except Exception as e:
-        logging.error(f"Failed to read file {absolute_path}: {e}")
-        raise
 
 
 def prepare_api_messages(
