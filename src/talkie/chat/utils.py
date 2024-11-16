@@ -1,6 +1,5 @@
 from typing import Optional, Tuple, Dict, Any, List
 import os
-from pprint import pprint
 from ..logger_setup import talkie_logger as logging
 
 
@@ -117,38 +116,107 @@ def parse_frontmatter_section(frontmatter_lines: List[str]) -> Dict[str, str]:
     return frontmatter
 
 
-def parse_messages_section(
-    message_lines: List[str], chat_file_path: str
-) -> List[Dict[str, Any]]:
-    """Parse message lines into a list of messages."""
-    logging.debug(f"Parsing messages section with {len(message_lines)} lines")
-    messages = []
-    current_message = {"role": None, "content": []}
+def collect_raw_messages(message_lines: List[str]) -> List[Dict[str, Any]]:
+    """First pass: Collect lines into role-based groups.
+
+    Args:
+        message_lines: List of lines from the chat file
+
+    Returns:
+        List of raw messages, each containing role and unprocessed lines
+    """
+    raw_messages = []
+    current_lines = []
+    current_role = None
 
     for line in message_lines:
         line = line.strip()
-        if (
-            not line or line == "---"
-        ):  # Skip empty lines and any additional frontmatter markers
+        if line == "---":  # Only skip frontmatter markers
             continue
 
-        new_message = process_message_line(line, current_message, chat_file_path)
-        if new_message != current_message:
-            if current_message["role"]:
-                messages.append(current_message)
-                logging.debug(
-                    f"Added {current_message['role']} message with {len(current_message['content'])} content items"
-                )
-            current_message = new_message
+        if line.startswith("user:") or line.startswith("assistant:"):
+            # Save previous message if it exists
+            if current_role and current_lines:
+                raw_messages.append({"role": current_role, "lines": current_lines})
+                current_lines = []
 
-    if current_message["role"]:
-        messages.append(current_message)
+            # Start new message
+            current_role = "user" if line.startswith("user:") else "assistant"
+            content_start = line.find(":") + 1
+            first_line = line[content_start:].strip()
+            if first_line:  # Only add if there's content after the role marker
+                current_lines.append(first_line)
+        elif current_role:  # Continuation of current message
+            current_lines.append(line)
+
+    # Add the last message if exists
+    if current_role and current_lines:
+        raw_messages.append({"role": current_role, "lines": current_lines})
+
+    logging.debug(f"First pass complete: collected {len(raw_messages)} raw messages")
+    return raw_messages
+
+
+def process_raw_messages(
+    raw_messages: List[Dict[str, Any]],
+    chat_file_path: str,
+    expand_file_for_last_message_only: bool = False,
+) -> List[Dict[str, Any]]:
+    """Second pass: Process each message's content.
+
+    Args:
+        raw_messages: List of raw messages from collect_raw_messages
+        chat_file_path: Path to the chat file for resolving file references
+        expand_file_for_last_message_only: If True, only expand file references in the last message
+
+    Returns:
+        List of processed messages with expanded content
+    """
+    messages = []
+    last_idx = len(raw_messages) - 1
+
+    for idx, raw_msg in enumerate(raw_messages):
+        processed_content = []
+        for line in raw_msg["lines"]:
+            if not is_comment(line):
+                if is_file_reference(line):
+                    logging.debug(f"Processing file reference: {line}")
+                    if not expand_file_for_last_message_only or idx == last_idx:
+                        print(idx, last_idx, "expanding")
+                        processed_content.append(
+                            expand_file_reference(line, chat_file_path)
+                        )
+                    else:
+                        print(idx, last_idx, "not expanding")
+                        processed_content.append(line)
+                else:
+                    processed_content.append(line)
+
+        messages.append({"role": raw_msg["role"], "content": processed_content})
         logging.debug(
-            f"Added final {current_message['role']} message with {len(current_message['content'])} content items"
+            f"Processed {raw_msg['role']} message with {len(processed_content)} content items"
         )
 
-    logging.debug(f"Completed message parsing, found {len(messages)} messages")
+    logging.debug(f"Second pass complete: processed {len(messages)} messages")
     return messages
+
+
+def parse_messages_section(
+    message_lines: List[str],
+    chat_file_path: str,
+    expand_file_for_last_message_only: bool = False,
+) -> List[Dict[str, Any]]:
+    """Parse message lines into a list of messages using a two-pass approach.
+
+    First pass: Group lines by role (user/assistant)
+    Second pass: Process each group's content (expand files, handle formatting)
+    """
+    logging.debug(f"Parsing messages section with {len(message_lines)} lines")
+
+    raw_messages = collect_raw_messages(message_lines)
+    return process_raw_messages(
+        raw_messages, chat_file_path, expand_file_for_last_message_only
+    )
 
 
 def parse_file_content(
