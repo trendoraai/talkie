@@ -8,6 +8,7 @@ dist/
 **/**.log
 **/**.ipynb_checkpoints/
 chroma_db/
+notebook/
 notes.md
 notes.excalidraw
 
