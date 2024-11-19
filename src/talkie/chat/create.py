@@ -29,10 +29,10 @@ def create_chat(name: str, dir_path: str | None = None) -> None:
     talkie_logger.debug("Preparing frontmatter data")
     frontmatter = FRONTMATTER_TEMPLATE.format(
         title=name,
-        system=config.get("system_prompt", ""),
-        model=config.get("model", ""),
-        api_endpoint=config.get("api_endpoint", ""),
-        rag_directory=config.get("rag_directory", ""),
+        system=config.system_prompt,
+        model=config.model,
+        api_endpoint=config.api_endpoint,
+        rag_directory=config.rag_directory,
         created_at=created_at,
         updated_at=updated_at,
         tags="[]",

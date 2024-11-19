@@ -5,10 +5,12 @@ import argparse
 import importlib
 import os
 from typing import List, Tuple, Optional
+from talkie.logger_setup import talkie_logger as logger
 
 
 def load_command_module(command_path: str) -> object:
     """Dynamically load a command module based on the given path."""
+    logger.debug(f"Loading command module: {command_path}")
     module_name = command_path.replace("/", ".")
     return importlib.import_module(module_name)
 
@@ -21,6 +23,9 @@ def get_available_commands(
     Only searches within the talkie.cli.commands package for command modules.
     Each command module should have a main() function that implements the command.
     """
+    logger.debug(
+        f"Searching for commands in {base_path} with filter: '{filter_prefix}'"
+    )
     commands = []
     # Convert module path to directory path for os.walk
     base_dir = os.path.join(*base_path.split("."))
@@ -28,6 +33,7 @@ def get_available_commands(
 
     # Ensure the commands directory exists
     if not os.path.exists(base_dir):
+        logger.warning(f"Commands directory not found: {base_dir}")
         return []
 
     for root, _, files in os.walk(base_dir):
@@ -123,24 +129,44 @@ def execute_command(
     command_parts: List[str], remaining_args: List[str]
 ) -> Optional[int]:
     """Load and execute the specified command module's main function."""
-    # Join command parts with dots to form module path
-    module_name = ".".join(command_parts)
-    module_path = f"talkie.cli.commands.{module_name}"
+    logger.debug(
+        f"Attempting to execute command: {command_parts} with args: {remaining_args}"
+    )
+    base_module_path = "talkie.cli.commands"
+    available_commands = get_available_commands()
 
-    try:
-        command_module = importlib.import_module(module_path)
-        if not hasattr(command_module, "main"):
-            raise ModuleNotFoundError()
+    # Try progressively longer command combinations
+    for i in range(len(command_parts), 0, -1):
+        current_parts = command_parts[:i]
+        current_command = " ".join(current_parts)
+        logger.debug(f"Trying command combination: {current_command}")
 
-        original_argv = sys.argv
-        sys.argv = [sys.argv[0]] + remaining_args
+        # Check if this command exists in available commands
+        for command, _ in available_commands:
+            if command == current_command:
+                try:
+                    module_name = command.replace(" ", ".")
+                    logger.info(f"Found matching command module: {module_name}")
+                    command_module = importlib.import_module(
+                        f"{base_module_path}.{module_name}"
+                    )
+                    if hasattr(command_module, "main"):
+                        original_argv = sys.argv
+                        # Include unused command parts as arguments
+                        unused_parts = command_parts[i:]
+                        all_args = unused_parts + remaining_args
+                        sys.argv = [sys.argv[0]] + all_args
+                        try:
+                            logger.debug(f"Executing command with args: {all_args}")
+                            return command_module.main(*all_args)
+                        finally:
+                            sys.argv = original_argv
+                except ImportError as e:
+                    logger.error(f"Failed to import module {module_name}: {str(e)}")
+                    continue
 
-        try:
-            return command_module.main(*remaining_args)
-        finally:
-            sys.argv = original_argv
-    except (ImportError, ModuleNotFoundError):
-        return None
+    logger.warning("No matching command found")
+    return None
 
 
 def handle_command_execution(
@@ -184,9 +210,11 @@ def handle_help_request(args: List[str]) -> None:
 
 def main() -> int:
     """Main entry point for the CLI tool."""
+    logger.debug("Starting CLI execution")
     args = sys.argv[1:]
 
     if not args:
+        logger.info("No arguments provided, displaying available commands")
         display_available_commands(get_available_commands())
         print(
             "\nUse `talkie command --help` to see detailed help for specific commands"
@@ -194,15 +222,17 @@ def main() -> int:
         return 0
 
     if args[-1] in {"--help", "-h"}:
+        logger.debug("Help flag detected")
         command_parts = args[:-1]
-
         handle_help_request(command_parts)
         return 0
 
     initial_args, remaining_args = parse_arguments()
+    logger.debug(f"Parsed arguments: {initial_args}, remaining: {remaining_args}")
     command_parts = initial_args.command
 
     if any(flag in remaining_args for flag in {"--help", "-h"}):
+        logger.debug("Help flag found in remaining arguments")
         display_available_commands(get_available_commands())
         print(
             "\nUse `talkie command --help` (e.g., `talkie hey --help`) to inspect further into the commands"
