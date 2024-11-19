@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 from .api import query_openai
 from .constants import FRONTMATTER_TEMPLATE
 from .response_metadata import handle_openai_response
-from .ask import get_openai_api_key
+from .ask import get_openai_api_key, discover_rag_path
 
 
 async def quick_chat(

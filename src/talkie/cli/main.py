@@ -85,7 +85,7 @@ def display_available_commands(
 
 def display_command_help(command_parts: List[str]) -> None:
     """Display help information for a specific command path."""
-    command_path = "talkie" + "".join(f"/{part}" for part in command_parts)
+    command_path = "talkie/cli/commands" + "".join(f"/{part}" for part in command_parts)
 
     try:
         command_module = load_command_module(command_path)
@@ -195,6 +195,7 @@ def main() -> int:
 
     if args[-1] in {"--help", "-h"}:
         command_parts = args[:-1]
+
         handle_help_request(command_parts)
         return 0
 
