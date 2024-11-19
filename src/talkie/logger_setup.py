@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from typing import Optional
 
 
@@ -10,7 +11,7 @@ def setup_global_logger(
 
     Args:
         name: Logger name, defaults to "talkie"
-        log_file: Optional log file path. If None, only console logging is enabled
+        log_file: Optional log file path. If None, a timestamped file will be created in current directory
 
     Returns:
         Configured logger instance
@@ -39,17 +40,20 @@ def setup_global_logger(
     # Add console handler
     logger.addHandler(console_handler)
 
-    # Add file handler if log_file is specified
-    if log_file:
-        # Create log directory if it doesn't exist
-        log_dir = os.path.dirname(log_file)
-        if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
+    # If no log_file specified, create a timestamped one in current directory
+    if log_file is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = f"{timestamp}.talkie.log"
 
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        logger.debug(f"Logging to file: {log_file}")
+    # Create log directory if it doesn't exist
+    log_dir = os.path.dirname(log_file)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.debug(f"Logging to file: {log_file}")
 
     logger.debug(f"Logger '{name}' initialized with level {log_level}")
     return logger

@@ -1,7 +1,7 @@
-import logging
 import httpx
 import json
 from typing import Tuple, Dict, Any, List
+from talkie.logger_setup import talkie_logger as logging
 
 
 async def query_openai(
