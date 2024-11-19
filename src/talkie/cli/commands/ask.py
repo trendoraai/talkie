@@ -1,7 +1,7 @@
 import argparse
 import sys
 import asyncio
-from talkie.logger_setup import talkie_logger
+from talkie.logger_setup import setup_global_logger
 from talkie.chat.ask import ask
 
 
@@ -41,6 +41,9 @@ def main(*args):
     # If args provided, use those. Otherwise use sys.argv[1:]
     args = parser.parse_args(args)
 
-    talkie_logger.info(f"Executing ask command for file: {args.file}")
+    # Setup logger specific to this chat file
+    logger = setup_global_logger(chat_file=args.file)
+    logger.info(f"Executing ask command for file: {args.file}")
+
     asyncio.run(ask(args.file, args.api_key))
     return 0
