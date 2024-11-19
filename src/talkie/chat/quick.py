@@ -1,14 +1,13 @@
-import asyncio
 from datetime import datetime
 import json
-import logging
-from pathlib import Path
 from typing import Optional, Dict, Any
 
-from .api import query_openai
-from .constants import FRONTMATTER_TEMPLATE
-from .response_metadata import handle_openai_response
-from .ask import get_openai_api_key, discover_rag_path
+from talkie.chat.api import query_openai
+from talkie.chat.constants import FRONTMATTER_TEMPLATE
+from talkie.chat.response_metadata import handle_openai_response
+from talkie.chat.ask import get_openai_api_key
+from talkie.logger_setup import talkie_logger as logging
+from talkie.rag.directory_rag import DirectoryRAG
 
 
 async def quick_chat(
@@ -43,14 +42,17 @@ async def quick_chat(
         # If RAG directory is provided, augment the question with relevant context
         full_question = question
         if rag_directory:
-            from ..rag.directory_rag import DirectoryRAG
+            api_key = get_openai_api_key(api_key)
+            rag = DirectoryRAG(rag_directory, openai_api_key=api_key)
+            rag.process_directory()
+            rag_context = []
+            for filename, content in rag.query(question):
+                context = f"File Path: {filename}\nFile Content:\n{content}\n"
+                rag_context.append(context)
 
-            rag = DirectoryRAG(rag_directory)
-            rag_context = rag.query(question)
             if rag_context:
-                full_question = (
-                    f"Context from codebase:\n{rag_context}\n\nQuestion: {question}"
-                )
+                text_rag_context = "\n".join(rag_context)
+                full_question = f"Context from codebase:\n{text_rag_context}\n\nQuestion: {question}"
 
         messages.append({"role": "user", "content": full_question})
 
