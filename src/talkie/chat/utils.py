@@ -134,14 +134,23 @@ def collect_raw_messages(message_lines: List[str]) -> List[Dict[str, Any]]:
         if line == "---":  # Only skip frontmatter markers
             continue
 
-        if line.startswith("user:") or line.startswith("assistant:"):
+        if (
+            line.startswith("user:")
+            or line.startswith("assistant:")
+            or line.startswith("system:")
+        ):
             # Save previous message if it exists
             if current_role and current_lines:
                 raw_messages.append({"role": current_role, "lines": current_lines})
                 current_lines = []
 
             # Start new message
-            current_role = "user" if line.startswith("user:") else "assistant"
+            if line.startswith("user:"):
+                current_role = "user"
+            elif line.startswith("assistant:"):
+                current_role = "assistant"
+            else:
+                current_role = "system"
             content_start = line.find(":") + 1
             first_line = line[content_start:].strip()
             if first_line:  # Only add if there's content after the role marker

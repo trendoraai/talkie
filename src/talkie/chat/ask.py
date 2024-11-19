@@ -60,11 +60,27 @@ def prepare_api_messages(
     logging.debug(f"Preparing API messages with system prompt: {bool(system_prompt)}")
     api_messages = []
 
-    if system_prompt:
+    # Find the last system message from chat if it exists
+    last_system_message = None
+    for msg in messages:
+        if msg["role"] == "system":
+            last_system_message = msg
+
+    # If we found a system message in chat, use that instead of frontmatter
+    if last_system_message:
+        api_messages.append(
+            {"role": "system", "content": "\n".join(last_system_message["content"])}
+        )
+    # Otherwise fall back to frontmatter system prompt
+    elif system_prompt:
         api_messages.append({"role": "system", "content": system_prompt})
 
+    # Add all non-system messages
     for msg in messages:
-        api_messages.append({"role": msg["role"], "content": "\n".join(msg["content"])})
+        if msg["role"] != "system":  # Skip system messages since we handled them above
+            api_messages.append(
+                {"role": msg["role"], "content": "\n".join(msg["content"])}
+            )
 
     logging.debug(f"Prepared {len(api_messages)} messages")
     return api_messages
