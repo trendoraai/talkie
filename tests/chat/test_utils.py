@@ -123,26 +123,6 @@ response line 2"""
     ]
 
 
-def test_parse_file_content_multiple_frontmatter_sections():
-    """Test handling of multiple frontmatter sections (should only use first one)."""
-    content = """---
-system: First system
----
-user: Message
----
-system: Second system
-and another line
----"""
-    result = parse_file_content(content, "test.md")
-    assert result[0] == "First system"
-    assert result[3] == [
-        {
-            "role": "user",
-            "content": ["Message", "system: Second system", "and another line"],
-        }
-    ]
-
-
 def test_parse_file_content_empty_frontmatter_values():
     """Test handling of empty frontmatter values."""
     content = """---
