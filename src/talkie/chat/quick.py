@@ -1,11 +1,13 @@
 from datetime import datetime
 import json
 from typing import Optional, Dict, Any
+from pathlib import Path
 
 from talkie.chat.api import query_openai
 from talkie.chat.constants import FRONTMATTER_TEMPLATE
 from talkie.chat.response_metadata import handle_openai_response
 from talkie.chat.ask import get_openai_api_key
+from talkie.chat.create import create_chat
 from talkie.logger_setup import talkie_logger as logging
 from talkie.rag.directory_rag import DirectoryRAG
 
@@ -90,25 +92,10 @@ def save_quick_chat(
     rag_directory: Optional[str] = None,
 ) -> None:
     """Save the quick chat to a file."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    path = Path(file_path)
 
-    frontmatter = FRONTMATTER_TEMPLATE.format(
-        timestamp=timestamp,
-        model=model,
-        api_endpoint=api_endpoint,
-        system_prompt=system_prompt if system_prompt else "",
-    )
+    # Create the chat file with frontmatter
+    create_chat(path.stem, str(path.parent))
 
-    # Add rag_directory to frontmatter if provided
-    if rag_directory:
-        frontmatter += f"rag_directory: {rag_directory}\n"
-    frontmatter += "---\n\n"
-
-    content = f"{frontmatter}" f"user: {question}\n\n" f"assistant: {answer}\n"
-
-    metadata = handle_openai_response(response_body)
-    if metadata:
-        content += f"\nmetadata: {json.dumps(metadata, indent=2)}\n"
-
-    with open(file_path, "w") as f:
-        f.write(content)
+    # Let handle_openai_response append the conversation and metadata
+    handle_openai_response(file_path, question, answer, response_body)
