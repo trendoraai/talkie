@@ -11,6 +11,10 @@ from ..rag.directory_rag import DirectoryRAG
 from ..logger_setup import talkie_logger as logging
 from .utils import parse_file_content
 
+# Add at the top with other imports and constants
+ANSI_CYAN = "\033[36m"
+ANSI_RESET = "\033[0m"
+
 
 async def process_file_and_query_openai(
     file_path: str, api_key: str, include_rag_context_in_chat_history: bool = False
@@ -41,7 +45,11 @@ async def process_file_and_query_openai(
 
     api_messages = prepare_api_messages(system_prompt, messages)
     logging.info(f"Prepared {len(api_messages)} messages for API request")
-    logging.debug(f"Prepared API messages:\n{json.dumps(api_messages, indent=2)}")
+
+    json_string = json.dumps(api_messages, indent=2, ensure_ascii=False)
+    formatted_json_string = json_string.replace("\\n", "\n")
+    colored_json = f"{ANSI_CYAN}{formatted_json_string}{ANSI_RESET}"
+    logging.debug(f"Prepared API messages:\n{colored_json}")
 
     logging.info(f"Querying OpenAI API with model {model}")
     answer, response_body = await query_openai(

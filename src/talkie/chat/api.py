@@ -14,9 +14,13 @@ async def query_openai(
         Tuple containing (answer string, full response body)
     """
     logging.info(f"Sending request to OpenAI API using model: {model}")
-    logging.debug(
-        f"Request payload:\n{json.dumps({'model': model, 'messages': messages}, indent=2)}"
+    json_string = json.dumps(
+        {"model": model, "messages": messages}, indent=2, ensure_ascii=False
     )
+
+    # Replace escaped newlines with actual newlines
+    formatted_json_string = json_string.replace("\\n", "\n")
+    logging.debug(f"Request payload:\n{formatted_json_string}")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
@@ -31,7 +35,11 @@ async def query_openai(
             )
 
         response_body = response.json()
-        logging.debug(f"Received response:\n{json.dumps(response_body, indent=2)}")
+        json_string = json.dumps(response_body, indent=2, ensure_ascii=False)
+
+        # Replace escaped newlines with actual newlines
+        formatted_json_string = json_string.replace("\\n", "\n")
+        logging.debug(f"Received response:\n{formatted_json_string}")
 
         answer = response_body["choices"][0]["message"]["content"]
         logging.info("Successfully received and parsed answer from OpenAI API")
